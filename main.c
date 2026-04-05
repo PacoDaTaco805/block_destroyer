@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <stdint.h>
+#include <signal.h>
 
 /**
  * Number of microseconds in a second
@@ -23,6 +25,52 @@ const long FPS = 30;
 const long ms_per_loop = us_per_s / FPS;
 
 /**
+ * Current width of the terminal in characters
+ */
+uint32_t terminal_width = 0;
+
+/**
+ * Current height of the terminal in characters
+ */
+uint32_t terminal_height = 0;
+
+/**
+ * Gets the latest dimensions of the terminal and updates the global variables
+ */
+void updateTerminalDimensions() {
+  struct winsize window_size;
+
+  if (ioctl(STDIN_FILENO, TIOCGWINSZ, &window_size) == -1){
+    exit(1);
+  }
+
+  terminal_width = window_size.ws_row;
+  terminal_height = window_size.ws_col;
+}
+
+/**
+ * The handler for sigwinch signals
+ */
+static void sigwinchHandler(int sig) {
+  updateTerminalDimensions();
+}
+
+/**
+ * Sets up the sigwinch handler
+ */
+int setupSigWinchSignaHandler() {
+  struct sigaction signal_action;
+
+  sigemptyset(&signal_action.sa_mask);
+
+  signal_action.sa_flags = 0;
+
+  signal_action.sa_handler = sigwinchHandler;
+
+  return sigaction(SIGWINCH, &signal_action, NULL);
+}
+
+/**
  * Calculates the time in microseconds from a timeval struct
  */
 long get_time_us(struct timeval* time_value) {
@@ -31,6 +79,8 @@ long get_time_us(struct timeval* time_value) {
 
 int main(int argc, char *argv[])
 {
+  setupSigWinchSignaHandler();
+
   struct timeval start_time;
   struct timeval end_time;
 
