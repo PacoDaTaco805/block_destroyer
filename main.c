@@ -1,3 +1,5 @@
+#include <time.h>
+#define _POSIX_C_SOURCE 200809L
 #include <bits/types/struct_timeval.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -33,6 +35,34 @@ uint32_t terminal_width = 0;
  * Current height of the terminal in characters
  */
 uint32_t terminal_height = 0;
+
+typedef struct half_block {
+   char character;
+} Half_Block;
+
+
+typedef struct block{
+    Half_Block left_half_block;
+    Half_Block right_half_block;
+} Block;
+
+typedef struct object{
+
+} Object;
+
+typedef struct layer{
+  uint32_t width;
+  uint32_t height;
+  Object* objects;
+
+} Layer;
+
+
+typedef struct frame {
+    uint32_t width;
+    uint32_t height;
+    Block** buffer;
+} Frame;
 
 /**
  * Gets the latest dimensions of the terminal and updates the global variables
@@ -115,7 +145,7 @@ int main(int argc, char *argv[])
     // Sleep to keep loop times constant
     if (extra_time > 0)
     {
-      usleep(extra_time);
+      nanosleep(extra_time * 1000, NULL);
     }
 
 
