@@ -1,5 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 
+#include "math.h"
+#include "types.c"
 #include <bits/time.h>
 #include <signal.h>
 #include <stdint.h>
@@ -37,53 +39,6 @@ uint32_t terminal_width = 0;
  */
 uint32_t terminal_height = 0;
 
-typedef enum direction { NORTH, EAST, SOUTH, WEST } Direction;
-
-typedef struct half_block {
-  char character;
-} Half_Block;
-
-typedef struct block {
-  Half_Block left_half_block;
-  Half_Block right_half_block;
-} Block;
-
-typedef struct position {
-  uint32_t x;
-  uint32_t y;
-} Position;
-
-typedef struct size {
-  uint32_t width;
-  uint32_t height;
-} Size;
-
-typedef struct velocity {
-  uint32_t speed;
-  Direction direction;
-} Velocity;
-
-typedef struct object {
-  Position position;
-  Size size;
-  Block **blocks;
-
-} Object;
-
-typedef struct layer {
-  uint32_t width;
-  uint32_t height;
-  uint32_t object_count;
-  Object *objects;
-
-} Layer;
-
-typedef struct frame {
-  uint32_t width;
-  uint32_t height;
-  Block **blocks;
-} Frame;
-
 /**
  * Gets the latest dimensions of the terminal and updates the global variables
  */
@@ -118,6 +73,22 @@ int setupSigWinchSignaHandler() {
   return sigaction(SIGWINCH, &signal_action, NULL);
 }
 
+float taco_min_f(float num1, float num2) {
+  return (num1 > num2) ? num2 : num1;
+}
+
+float taco_max_f(float num1, float num2) {
+  return (num1 > num2) ? num1 : num2;
+}
+
+uint32_t taco_min(uint32_t num1, uint32_t num2) {
+  return (num1 > num2) ? num2 : num1;
+}
+
+uint32_t taco_max(uint32_t num1, uint32_t num2) {
+  return (num1 > num2) ? num1 : num2;
+}
+
 uint64_t get_time_ns(struct timespec time_spec) {
   return time_spec.tv_sec * ns_per_s + time_spec.tv_nsec;
 }
@@ -128,46 +99,23 @@ struct timespec get_time_spec_from_ns(uint64_t time_ns) {
   return time_spec;
 }
 
-uint32_t write_object_to_frame(Object *object, Frame *frame) {
-  uint32_t min_x = (object->position.x - object->size.width / 2);
-  uint32_t max_x = (object->position.x + object->size.width / 2);
+void write_object_to_frame(Object *object, Frame *frame) {
+  int32_t object_start_x = round(object->position.x - object->size.width /2.0);
+  int32_t object_start_y = round(object->position.y - object->size.height / 2.0);
 
-  uint32_t min_y = (object->position.y - object->size.height / 2);
-  uint32_t max_y = (object->position.y + object->size.height / 2);
-
-  uint32_t x_offset;
-  uint32_t y_offset;
-
-  if (min_x < 0 && max_x >= frame->width) {
-    return -1;
-  } else if (min_x < 0) {
-    x_offset = 0;
-  } else if (max_x >= frame->width) {
-    x_offset = frame->width - object->size.width;
-  }
-
-  if (min_y < 0 && max_y >= frame->height) {
-    return -1;
-  } else if (min_y < 0) {
-    y_offset = 0;
-  } else if (max_y >= frame->width) {
-    y_offset = frame->height - object->size.height;
-  }
-
-  for (int row = 0; row < object->size.height; row++) {
-    if (y_offset + row >= frame->height) {
-      return -1;
+  for (int32_t row = 0; row < object->size.height; row++) {
+    if (row + object_start_y < 0 || row + object_start_y >= frame->height) {
+      continue;
     }
 
-    for (int column = 0; column < object->size.width; column++) {
-      if (x_offset + column >= frame->width) {
-        return -1;
+    for (int32_t column = 0; column < object->size.width; column++) {
+      if (column + object_start_x < 0 || column+ object_start_x >= frame->width) {
+        continue;
       }
-      frame->blocks[y_offset + row][x_offset + column] = object->blocks[row][column];
+
+      frame->blocks[object_start_x + row][object_start_y = column] = object->blocks[row][column];
     }
   }
-
-  return 0;
 }
 
 uint32_t generate_frame(Layer *layers, uint32_t layer_count, Frame *frame) {
@@ -190,12 +138,17 @@ uint32_t generate_frame(Layer *layers, uint32_t layer_count, Frame *frame) {
        currentLayerIndex++) {
     current_layer = layers[currentLayerIndex];
 
-    for (int current_obj_index = 0; current_obj_index < current_layer.object_count; current_obj_index++) {
+    for (int current_obj_index = 0;
+         current_obj_index < current_layer.object_count; current_obj_index++) {
       write_object_to_frame((current_layer.objects + currentLayerIndex), frame);
     }
   }
 
   return 0;
+}
+
+void draw_frame() {
+
 }
 
 int main(int argc, char *argv[]) {
